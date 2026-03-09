@@ -1,0 +1,11 @@
+{
+	"path": "pr-release-notes/update-release-notes/EXAMPLE.yaml",
+	"owners": {
+		"approvers": [
+			"psundara"
+		],
+		"reviewers": [
+			"psundara"
+		]
+	}
+}

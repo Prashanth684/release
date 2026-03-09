@@ -1,0 +1,70 @@
+# Example CI configuration for automated user-facing release notes
+#
+# Add this to: ci-operator/config/<org>/<repo>/<org>-<repo>-<branch>.yaml
+
+base_images:
+  cli:
+    name: "4.17"
+    namespace: ocp
+    tag: cli
+
+build_root:
+  image_stream_tag:
+    name: release
+    namespace: openshift
+    tag: golang-1.22
+
+images:
+- from: base
+  to: my-component
+
+tests:
+# Regular test jobs...
+- as: unit
+  commands: make test
+  container:
+    from: src
+
+- as: e2e
+  steps:
+    cluster_profile: aws
+    workflow: openshift-e2e-aws
+
+# Automated user-facing release notes generator
+# Analyzes PR changes and generates user documentation
+# No external dependencies required (no CodeRabbit, etc.)
+- as: pr-release-notes
+  optional: true  # Don't block PR merges
+  skip_if_only_changed: "^docs/|\\.md$|^(?:.*\\/)?(?:OWNERS|LICENSE|OWNERS_ALIASES)$"
+  steps:
+    test:
+    - ref: pr-release-notes
+
+# Example: Customize with different filename and model
+- as: pr-changelog
+  optional: true
+  skip_if_only_changed: "^docs/|\\.md$"
+  steps:
+    test:
+    - ref: pr-release-notes
+      env:
+      - name: RELEASE_NOTES_FILE
+        value: "CHANGELOG.md"
+      - name: CLAUDE_MODEL
+        value: "claude-opus-4-5"  # Use Opus for more detailed analysis
+
+# Example: Using a different secret name
+- as: pr-release-notes-custom
+  optional: true
+  steps:
+    test:
+    - ref: pr-release-notes
+      credentials:
+      - namespace: test-credentials
+        name: my-custom-release-bot  # Your secret name
+        mount_path: /var/run/release-notes-credentials
+      env:
+      - name: GITHUB_APP_CREDS_DIR
+        value: "/var/run/release-notes-credentials"
+      - name: GOOGLE_APPLICATION_CREDENTIALS
+        value: "/var/run/release-notes-credentials/claude-prow"
